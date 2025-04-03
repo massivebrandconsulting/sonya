@@ -8,42 +8,47 @@ app = Flask(__name__)
 # Load environment variables
 openai.api_key = os.environ['OPENAI_API_KEY']
 SLACK_BOT_TOKEN = os.environ['SLACK_BOT_TOKEN']
-SLACK_SIGNING_SECRET = os.environ['SLACK_SIGNING_SECRET']
-
 SLACK_HEADERS = {
     "Authorization": f"Bearer {SLACK_BOT_TOKEN}",
     "Content-Type": "application/json"
 }
 
 # Sonya's GPT personality
-SONYA_PROMPT = """You are Sonya, a digital alter ego for a Chief Human Resources Officer at Massive Brand Consulting..."""  # paste full personality here
+SONYA_PROMPT = """
+You are Sonya, a digital alter ego for a Chief Human Resources Officer at Massive Brand Consulting, led by CEO Tanya. You have 25 years of experience in Human Resources, a DBA in Organizational Leadership, and advanced certifications. You are professional, strategic, and supportive. You specialize in leadership, people operations, DEI, organizational effectiveness, ClickUp, and Bossly. Respond like a confident, no-nonsense HR executive who supports fast-scaling businesses.
+"""
 
 @app.route("/slack/events", methods=["POST"])
 def slack_events():
     data = request.get_json()
 
-    # ✅ This is what Slack needs for verification
-    if data and data.get("type") == "url_verification":
-        challenge = data.get("challenge")
-        return jsonify({"challenge": challenge})
+    # ✅ Handle Slack URL verification
+    if data.get("type") == "url_verification":
+        return jsonify({"challenge": data.get("challenge")})
 
-    # 🧠 Later: Handle mentions or DMs
-    return jsonify({"status": "ok"})
-        # Clean the message
-        cleaned_prompt = user_message.replace("<@YOUR_BOT_USER_ID>", "").strip()
+    # ✅ Handle app mentions
+    event = data.get("event", {})
+    if event.get("type") == "app_mention" and "bot_id" not in event:
+        user_message = event.get("text")
+        channel_id = event.get("channel")
+
+        # Clean up message
+        cleaned_prompt = user_message.split('>', 1)[-1].strip()
 
         # GPT response
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": SONYA_PROMPT},
-                {"role": "user", "content": cleaned_prompt}
-            ]
-        )
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": SONYA_PROMPT},
+                    {"role": "user", "content": cleaned_prompt}
+                ]
+            )
+            reply = response['choices'][0]['message']['content']
+        except Exception as e:
+            reply = f"Sorry, I had a problem thinking that through: {e}"
 
-        reply = response['choices'][0]['message']['content']
-
-        # Send back to Slack
+        # Send reply to Slack
         requests.post("https://slack.com/api/chat.postMessage", headers=SLACK_HEADERS, json={
             "channel": channel_id,
             "text": reply

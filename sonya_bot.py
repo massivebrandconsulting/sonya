@@ -35,6 +35,37 @@ def slack_events():
         )
         reply = response['choices'][0]['message']['content']
         requests.post("https://slack.com/api/chat.postMessage", headers=SLACK_HEADERS, json={
+
+
+from flask import Flask, request, jsonify
+import openai
+import os
+import requests
+
+app = Flask(__name__)
+
+openai.api_key = os.environ['OPENAI_API_KEY']
+SLACK_BOT_TOKEN = os.environ['SLACK_BOT_TOKEN']
+SLACK_SIGNING_SECRET = os.environ['SLACK_SIGNING_SECRET']
+
+SLACK_HEADERS = {
+    "Authorization": f"Bearer {SLACK_BOT_TOKEN}",
+    "Content-Type": "application/json"
+}
+
+SONYA_PROMPT = """You are Sonya, a digital alter ego for a Chief Human Resources Officer..."""  # Full prompt goes here
+
+@app.route("/slack/events", methods=["POST"])
+def slack_events():
+    data = request.get_json()
+
+    # ✅ This part is **critical** for Slack's verification challenge
+    if data.get("type") == "url_verification":
+        return jsonify({"challenge": data.get("challenge")})
+
+    # Optional: handle app_mention or message.im here later
+    return jsonify({"status": "ok"})
+
             "channel": channel_id,
             "text": reply
         })

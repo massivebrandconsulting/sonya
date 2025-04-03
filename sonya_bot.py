@@ -22,16 +22,13 @@ SONYA_PROMPT = """You are Sonya, a digital alter ego for a Chief Human Resources
 def slack_events():
     data = request.get_json()
 
-    # 🔐 Slack verification challenge — REQUIRED
-    if data.get("type") == "url_verification":
-        return jsonify({"challenge": data.get("challenge")})
+    # ✅ This is what Slack needs for verification
+    if data and data.get("type") == "url_verification":
+        challenge = data.get("challenge")
+        return jsonify({"challenge": challenge})
 
-    # ✅ Handle actual messages
-    event = data.get("event", {})
-    if event.get("type") == "app_mention" and "bot_id" not in event:
-        user_message = event.get("text")
-        channel_id = event.get("channel")
-
+    # 🧠 Later: Handle mentions or DMs
+    return jsonify({"status": "ok"})
         # Clean the message
         cleaned_prompt = user_message.replace("<@YOUR_BOT_USER_ID>", "").strip()
 
